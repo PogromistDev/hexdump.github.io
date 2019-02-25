@@ -1,3 +1,4 @@
+// getting elements
 const terminal = document.querySelector("#terminal");
 const browse = document.querySelector("#browse");
 const color = document.querySelector("#color");
@@ -7,16 +8,20 @@ const stdout = document.querySelector("#stdout");
 var canvas = document.querySelector("#canvas");
 var context = canvas.getContext("2d");
 
-var rowNumWidth = 64;
+// settings
+var helpText = null;
 
 const cellInitialSizeX = 32;
 const cellInitialSizeY = 32;
+const rowInitialWidth = 64;
+
+var rowNumWidth = rowInitialWidth;
 
 var cellSizeX = cellInitialSizeX;
 var cellSizeY = cellInitialSizeY;
 var cells = 0;
 
-const commands = [];
+var commands = [];
 var commandNumber = 0;
 
 var foreColor = "white";
@@ -33,104 +38,202 @@ var selectedCell = 0;
 
 var data = null;
 
-//
+// initialization
 
-createCanvas();
+(function init() {
 
-document.body.addEventListener("keydown", function(e) {
+	// adding event listeners
+	document.body.addEventListener("keydown", keyDown);
+	window.addEventListener("wheel", wheel);
+
+	// canvas size
+	canvas.width = screen.width;
+	canvas.height = screen.height - 48;
+
+	// getting settings from local storage
+	if (localStorage) {
+
+		let commandsStorage;
+		let foreColorStorage, backColorStorage; 
+
+		commandsStorage = localStorage.getItem("commands");
+
+		foreColorStorage = localStorage.getItem("fore-color");
+		backColorStorage = localStorage.getItem("back-color");
+
+		if (commandsStorage && foreColorStorage && backColorStorage) {
+
+			commands = JSON.parse(commandsStorage);
+
+			foreColor = foreColorStorage;
+			backColor = backColorStorage;
+
+		}
+
+	}
+
+	// fetching help text
+	let xhr = new XMLHttpRequest();
+	xhr.open("GET", "help.txt");
+	xhr.responseType = "arraybuffer";
+	xhr.onload = () => {
+		helpText = xhr.response;
+	};
+	xhr.send();
+	delete xhr;
+
+	// refreshing canvas
+	drawData(data);
+
+})();
+
+// event handlers
+
+function keyDown(e) {
 
 	if (e.target == terminal) {
+
 		// enter
 		if (e.keyCode == 13) {
-			if (e.target.value == "open") {
-				browse.addEventListener("change", function(e) {
-				const fr = new FileReader();
-				fr.onload = function() {
-					data = fr.result;
-					dumpFile(fr.result);
+
+			const cmd = e.target.value;
+
+			if (cmd == "help") {
+
+				data = helpText;
+				dumpFile(helpText);
+
+				command(cmd);
+			}
+
+			if (cmd == "open") {
+
+				browse.addEventListener("change", e => {
+
+					const fr = new FileReader();
+
+					fr.onload = () => {
+						data = fr.result;
+						dumpFile(fr.result);
+					}
+
+					fr.readAsArrayBuffer(browse.files[0]);
+				});
+
+				browse.click();
+
+				command(cmd);
+			}
+
+			if (cmd == "back-color") {
+				color.onchange = function () {
+					backColor = color.value;
+					drawData(data);
+
+					localStorage.setItem("back-color", backColor);
 				}
-				fr.readAsArrayBuffer(browse.files[0]);
-			});
-			browse.click();
 
-			command(e.target.value);
-		}
+				color.click();
 
-		if (e.target.value == "back-color") {
-			color.onchange = function() {
-				backColor = color.value;
-				drawData(data);
+				command(cmd);
 			}
-			color.click();
 
-			command(e.target.value);
-		}
+			if (cmd == "fore-color") {
+				color.onchange = function () {
+					foreColor = color.value;
+					drawData(data);
 
-		if (e.target.value == "fore-color") {
-			color.onchange = function() {
-				foreColor = color.value;
-				drawData(data);
+					localStorage.setItem("fore-color", foreColor);
+				}
+				color.click();
+
+				command(cmd);
 			}
-			color.click();
 
-			command(e.target.value);
+			if (cmd == "reset-back-color") {
+				backColor = "black";
+
+				localStorage.setItem("back-color", backColor);
+
+				drawData(data);
+
+				command(cmd);
+			}
+
+			if (cmd == "reset-fore-color") {
+				foreColor = "white";
+
+				localStorage.setItem("fore-color", foreColor);
+
+				drawData(data);
+
+				command(cmd);
+			}
+
+			if (cmd == "reset-colors") {
+				backColor = "black";
+				foreColor = "white";
+
+				localStorage.setItem("back-color", backColor);
+				localStorage.setItem("fore-color", foreColor);
+
+				drawData(data);
+
+				command(cmd);
+			}
+
+			if (cmd == "cls" || (cmd == "clear")) {
+				data = null;
+				scrollY = 0;
+				drawData(data);
+				command(cmd);
+			}
+
+			if (cmd == "reset") {
+				scrollY = 0;
+				drawData(data);
+				command(cmd);
+			}
+
+			if (cmd == "reset-scale") {
+				cellSizeX = cellInitialSizeX;
+				cellSizeY = cellInitialSizeY;
+				fontSize = initialFontSize;
+				drawData(data);
+				command(cmd);
+			}
 		}
 
-		if (e.target.value == "cls" || (e.target.value == "clear")) {
-			data = null;
-			scrollY = 0;
-			drawData(data);
-			command(e.target.value);
+		// up
+		if (e.keyCode == 38) {
+			if (commandNumber > 0) {
+				commandNumber--;
+				terminal.value = commands[commandNumber];
+			}
 		}
 
-		if (e.target.value == "reset") {
-			scrollY = 0;
-			drawData(data);
-			command(e.target.value);
+		// down
+		if (e.keyCode == 40) {
+			if (commandNumber < commands.length - 1) {
+				commandNumber++;
+				terminal.value = commands[commandNumber];
+			}
 		}
 
-		if (e.target.value == "reset-scale") {
-			cellSizeX = cellInitialSizeX;
-			cellSizeY = cellInitialSizeY;
-			fontSize = initialFontSize;
-			drawData(data);
-			command(e.target.value);
+		// esc
+		if (e.keyCode == 27) {
+			terminal.value = "";
+			if (commands.length == 1) {
+				commandNumber = commands.length;
+			}
 		}
-	}
-
-	// up
-	if (e.keyCode == 38) {
-		if (commandNumber > 0) {
-			commandNumber--;
-			terminal.value = commands[commandNumber];
-			console.log(commands, commandNumber);
-			
-		}
-	}
-
-	// down
-	if (e.keyCode == 40) {
-		if (commandNumber < commands.length-1) {
-			commandNumber++;
-			terminal.value = commands[commandNumber];
-			console.log(commands, commandNumber);
-		}
-	}
-
-	// esc
-	if (e.keyCode == 27) {
-		terminal.value = "";
-		if (commands.length == 1) {
-			commandNumber = commands.length;
-		}
-	}
 	}
 
 	if (e.target == document.body) {
 		if (data) {
 
 			if (e.shiftKey) {
-				speed = 5;
+				speed = 4;
 			} else {
 				speed = initialSpeed;
 			}
@@ -138,14 +241,8 @@ document.body.addEventListener("keydown", function(e) {
 			// up
 			if (e.keyCode == 38) {
 
-				// if (scrollY > 0) {
-					
-				// 	scrollY -= speed;
-				// 	scrollY = Math.max(0, scrollY);
-				// }
-
 				if (selectedCell >= 16 * speed) {
-					selectedCell -= 16 * speed;
+					selectCell(selectedCell - 16 * speed);
 				}
 
 				drawData(data);
@@ -153,25 +250,21 @@ document.body.addEventListener("keydown", function(e) {
 
 			// down
 			if (e.keyCode == 40) {
-				// if (scrollY < (data.byteLength - 1) / 16) {
-				// 	scrollY += speed;
-				// }
 
-				selectedCell += 16 * speed;
+				selectCell(selectedCell + 16 * speed);
 
 				drawData(data);
 			}
 
 			// left
 			if (e.keyCode == 37) {
-				selectedCell = Math.max(0, selectedCell - speed);
-
+				selectCell(selectedCell - speed);
 				drawData(data);
 			}
 
 			// right
 			if (e.keyCode == 39) {
-				selectedCell += speed;
+				selectCell(selectedCell + speed);
 
 				drawData(data);
 			}
@@ -198,13 +291,14 @@ document.body.addEventListener("keydown", function(e) {
 		if (e.keyCode == 36) {
 			cellSizeX = cellInitialSizeX;
 			cellSizeY = cellInitialSizeY;
+			rowNumWidth = rowInitialWidth;
 			fontSize = initialFontSize;
 			drawData(data, scrollY);
 		}
 	}
-});
+}
 
-window.addEventListener("wheel", function(e) {
+function wheel(e) {
 	e.preventDefault();
 	if (data) {
 		if (e.wheelDeltaY > 0) {
@@ -219,26 +313,31 @@ window.addEventListener("wheel", function(e) {
 
 		drawData(data, scrollY);
 	}
-});
+}
 
+// ui functions
 
-
-function createCanvas() {
-	canvas.width = screen.width;
-	canvas.height = screen.height - 48;
-
-	drawData(data);
+function selectCell(index) {
+	if (index < data.byteLength) {
+		selectedCell = Math.max(0, index);
+	}
 }
 
 function drawData(data) {
 	// background
-	context.fillStyle = backColor;//`rgba(0, 0, 0, 0.1)`;
+	context.fillStyle = backColor;
 	context.fillRect(0, 0, canvas.width, canvas.height);
 
-	context.fillStyle = "#292929";
+	let color = new w3color(backColor);
+	color.darker(5);
+
+	context.fillStyle = color.toRgbaString();
+
+	color.darker(5);
+	document.body.style.backgroundColor = color.toRgbaString();
 
 	// column header
-	context.fillRect(rowNumWidth, 0, canvas.width, cellSizeY);
+	context.fillRect(rowNumWidth, 0, canvas.width - rowNumWidth, cellSizeY);
 
 	// row side bar
 	context.fillRect(0, cellSizeY, rowNumWidth, canvas.height);
@@ -251,35 +350,40 @@ function drawData(data) {
 	// selected cell number
 
 	let char = selectedCell.toString(16);
-	let sizeX = context.measureText(char).width;
-	let sizeY = context.measureText(char[0]).width;
 
-	context.fillText(char, rowNumWidth - sizeX - 16, cellSizeY/2 + sizeY/2);
+	context.textAlign = "right";
+	context.textBaseline = "middle";
+
+	context.fillText(char, rowNumWidth - 16, cellSizeY / 2);
 
 	// column number
-	for (let x = 0; x < 16; x++) {
+	for (let x = 0; x < 16; x ++) {
 		let char = x.toString(16);
-		let sizeX = context.measureText(char).width;
-		let sizeY = context.measureText(char[0]).width;
 		
-		context.fillText(char, rowNumWidth + (x * cellSizeX) + (cellSizeX/2 - sizeX/2), cellSizeY/2 + sizeY/2);
+		context.textAlign = "center";
+		context.textBaseline = "middle";
+
+		context.fillText(char, rowNumWidth + (x * cellSizeX) + cellSizeX / 2, cellSizeY / 2);
 	}
 
 	// row number
-	for (let y = 0; y < (canvas.height - cellSizeY) / cellSizeY; y++) {
+	for (let y = 0; y < (canvas.height - cellSizeY) / cellSizeY; y ++) {
 
 		let char = ((y + scrollY) * 16).toString(16);
 
-		let sizeX = context.measureText(char).width;
-		let sizeY = context.measureText(char[0]).width;
+		context.textAlign = "right";
+		context.textBaseline = "middle";
 		
-		context.fillText(char, rowNumWidth - sizeX - 16, cellSizeY + (y * cellSizeY) + (cellSizeY/2 + sizeY/2));
+		context.fillText(char, rowNumWidth - 16, cellSizeY + (y * cellSizeY) + cellSizeY / 2);
 	}
 
 	if (data) {
 		const dataView = new DataView(data);
 
 		cells = (scrollY * 16);
+
+		context.textAlign = "center";
+		context.textBaseline = "middle";
 
 		for (let y = 0; y < (canvas.height - cellSizeY) / cellSizeY; y++) {
 			
@@ -290,12 +394,7 @@ function drawData(data) {
 
 					let char = dataView.getUint8(cells).toString(16);
 					let char2 = String.fromCharCode(dataView.getUint8(cells));
-					
-					let sizeX = context.measureText(char).width;
-					let sizeY = context.measureText(char[0]).width;
-
-					let size = context.measureText(char2).width;
-					
+										
 					// highlight cell
 					if (selectedCell == cells) {
 						context.fillStyle = foreColor;
@@ -309,10 +408,13 @@ function drawData(data) {
 						context.fillStyle = backColor;
 					}
 
-					context.fillText(char, (rowNumWidth) + (x * cellSizeX) + (cellSizeX/2 - sizeX/2), cellSizeY + (y * cellSizeY) + (cellSizeY/2 + sizeY/2));
+					// hex
 
-					// text
-					context.fillText(char2, (rowNumWidth +  cellSizeX * 17) + (x * cellSizeX) + (cellSizeX/2 - size/2), cellSizeY + (y * cellSizeY) + (cellSizeY/2 + size/2));
+					context.fillText(char, rowNumWidth + (x * cellSizeX) + cellSizeX / 2, cellSizeY + (y * cellSizeY) + cellSizeY / 2);
+
+					// ascii
+
+					context.fillText(char2, (rowNumWidth +  cellSizeX * 17) + (x * cellSizeX) + cellSizeX / 2, cellSizeY + (y * cellSizeY) + cellSizeY / 2);
 
 					cells++;
 				}
@@ -334,11 +436,14 @@ function command(commandStr) {
 	}
 	commandNumber = commands.length;
 	terminal.value = "";
+
+	localStorage.setItem("commands", JSON.stringify(commands));
 }
 
 function scaleFont() {
 	cellSizeX ++;
 	cellSizeY ++;
+	rowNumWidth ++;
 
 	fontSize += 0.5;
 }
@@ -346,6 +451,7 @@ function scaleFont() {
 function unscaleFont() {
 	cellSizeX --;
 	cellSizeY --;
+	rowNumWidth --;
 
 	fontSize -= 0.5;
 }
