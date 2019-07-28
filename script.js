@@ -1,15 +1,19 @@
 // getting elements
-const terminal = document.querySelector("#terminal");
-const browse = document.querySelector("#browse");
-const color = document.querySelector("#color");
+const [
+	enterSymbol,
+	terminal,
+	browse,
+	color,
+	stdout,
 
-const stdout = document.querySelector("#stdout");
+	canvas
+] = document.querySelectorAll("#enterSymbol, #terminal, #browse, #color, #stdout, #canvas");
 
-var canvas = document.querySelector("#canvas");
 var context = canvas.getContext("2d");
 
 // settings
 var helpText = null;
+var asciiText = "ascii";
 
 const cellInitialSizeX = 32;
 const cellInitialSizeY = 32;
@@ -23,12 +27,22 @@ var cells = 0;
 
 var commands = [];
 var commandNumber = 0;
+var commandExists = false;
 
-var foreColor = "white";
-var backColor = "black";
+// colors
+
+const initialBackColor = "black";
+const initialForeColor = "white";
+
+var backColor = initialBackColor;
+var foreColor = initialForeColor;
+
+// font
 
 const initialFontSize = 14;
 var fontSize = initialFontSize;
+
+//
 
 var initialSpeed = 1;
 var speed = initialSpeed;
@@ -37,6 +51,7 @@ var scrollY = 0;
 var selectedCell = 0;
 
 var data = null;
+let dataView = null;
 
 // initialization
 
@@ -45,16 +60,21 @@ var data = null;
 	// adding event listeners
 	document.body.addEventListener("keydown", keyDown);
 	window.addEventListener("wheel", wheel);
+	window.addEventListener("resize", e => {
+		canvas.width = window.innerWidth;
+		canvas.height = window.innerHeight - cellSizeY;
+		dumpFile(data);
+	});
 
 	// canvas size
-	canvas.width = screen.width;
-	canvas.height = screen.height - 48;
+	canvas.width = window.innerWidth;
+	canvas.height = window.innerHeight - cellSizeY;
 
 	// getting settings from local storage
 	if (localStorage) {
 
 		let commandsStorage;
-		let foreColorStorage, backColorStorage; 
+		let foreColorStorage, backColorStorage;
 
 		commandsStorage = localStorage.getItem("commands");
 
@@ -63,13 +83,18 @@ var data = null;
 
 		if (commandsStorage && foreColorStorage && backColorStorage) {
 
-			commands = JSON.parse(commandsStorage);
+			try {
+				commands = JSON.parse(commandsStorage);
+			}
+			catch {
+				console.error("What did you put into localStorage commands item?");
+			}
 
-			foreColor = foreColorStorage;
-			backColor = backColorStorage;
-
+			changeColors({
+				back: backColorStorage,
+				fore: foreColorStorage
+			});
 		}
-
 	}
 
 	// fetching help text
@@ -98,109 +123,118 @@ function keyDown(e) {
 
 			const cmd = e.target.value;
 
-			if (cmd == "help") {
+			switch (cmd) {
+				case "help": {
+					data = helpText;
+					dataView = new DataView(data);
+					dumpFile(helpText);
 
-				data = helpText;
-				dumpFile(helpText);
+					commandExists = true;
+					break;
+				}
 
-				command(cmd);
-			}
+				case "open": {
+					browse.addEventListener("change", e => {
 
-			if (cmd == "open") {
+						const fr = new FileReader();
 
-				browse.addEventListener("change", e => {
+						fr.onload = () => {
+							data = fr.result;
+							dataView = new DataView(data);
+							dumpFile(fr.result);
+						}
 
-					const fr = new FileReader();
+						fr.readAsArrayBuffer(browse.files[0]);
+					});
 
-					fr.onload = () => {
-						data = fr.result;
-						dumpFile(fr.result);
+					browse.click();
+
+					commandExists = true;
+					break;
+				}
+
+				case "back-color": {
+					color.onchange = () => {
+						changeColors({ back: color.value });
 					}
 
-					fr.readAsArrayBuffer(browse.files[0]);
-				});
+					color.click();
 
-				browse.click();
-
-				command(cmd);
-			}
-
-			if (cmd == "back-color") {
-				color.onchange = function () {
-					backColor = color.value;
-					drawData(data);
-
-					localStorage.setItem("back-color", backColor);
+					commandExists = true;
+					break;
 				}
 
-				color.click();
+				case "fore-color": {
+					color.onchange = () => {
+						changeColors({ fore: color.value });
+					}
+					color.click();
 
-				command(cmd);
-			}
+					commandExists = true;
+					break;
+				}
 
-			if (cmd == "fore-color") {
-				color.onchange = function () {
-					foreColor = color.value;
+				case "reset-back-color": {
+					changeColors({ back: initialBackColor });
+
+					commandExists = true;
+					break;
+				}
+
+				case "reset-fore-color": {
+					changeColors({ fore: initialForeColor });
+
+					commandExists = true;
+					break;
+				}
+
+				case "reset-colors": {
+					changeColors({
+						back: initialBackColor,
+						fore: initialForeColor
+					});
+
+					commandExists = true;
+					break;
+				}
+
+				case "cls":
+				case "clear": {
+					data = null;
+					scrollY = 0;
 					drawData(data);
 
-					localStorage.setItem("fore-color", foreColor);
+					commandExists = true;
+					break;
 				}
-				color.click();
 
-				command(cmd);
+				case "reset": {
+					scrollY = 0;
+					selectCell(0);
+
+					commandExists = true;
+					break;
+				}
+
+				case "reset-scale": {
+					initialScale();
+
+					commandExists = true;
+					break;
+				}
+
+				case "bottom": {
+					scrollY = Math.floor(data.byteLength / 16);
+					selectCell(data.byteLength - 1);
+
+					commandExists = true;
+					break;
+				}
 			}
 
-			if (cmd == "reset-back-color") {
-				backColor = "black";
-
-				localStorage.setItem("back-color", backColor);
-
-				drawData(data);
-
+			if (commandExists) {
 				command(cmd);
-			}
-
-			if (cmd == "reset-fore-color") {
-				foreColor = "white";
-
-				localStorage.setItem("fore-color", foreColor);
-
-				drawData(data);
-
-				command(cmd);
-			}
-
-			if (cmd == "reset-colors") {
-				backColor = "black";
-				foreColor = "white";
-
-				localStorage.setItem("back-color", backColor);
-				localStorage.setItem("fore-color", foreColor);
-
-				drawData(data);
-
-				command(cmd);
-			}
-
-			if (cmd == "cls" || (cmd == "clear")) {
-				data = null;
-				scrollY = 0;
-				drawData(data);
-				command(cmd);
-			}
-
-			if (cmd == "reset") {
-				scrollY = 0;
-				drawData(data);
-				command(cmd);
-			}
-
-			if (cmd == "reset-scale") {
-				cellSizeX = cellInitialSizeX;
-				cellSizeY = cellInitialSizeY;
-				fontSize = initialFontSize;
-				drawData(data);
-				command(cmd);
+				commandExists = false;
 			}
 		}
 
@@ -240,18 +274,18 @@ function keyDown(e) {
 
 			// up
 			if (e.keyCode == 38) {
+				let nextCell = selectedCell - 16 * speed;
 
-				if (selectedCell >= 16 * speed) {
-					selectCell(selectedCell - 16 * speed);
-				}
+				selectCell(nextCell >= 0 ? nextCell : selectedCell % 16);
 
 				drawData(data);
 			}
 
 			// down
 			if (e.keyCode == 40) {
+				let nextCell = selectedCell + 16 * speed;
 
-				selectCell(selectedCell + 16 * speed);
+				selectCell(nextCell < data.byteLength ? nextCell : data.byteLength - (data.byteLength % 16 - selectedCell % 16));
 
 				drawData(data);
 			}
@@ -289,17 +323,13 @@ function keyDown(e) {
 
 		// home
 		if (e.keyCode == 36) {
-			cellSizeX = cellInitialSizeX;
-			cellSizeY = cellInitialSizeY;
-			rowNumWidth = rowInitialWidth;
-			fontSize = initialFontSize;
-			drawData(data, scrollY);
+			initialScale();
 		}
 	}
 }
 
 function wheel(e) {
-	e.preventDefault();
+
 	if (data) {
 		if (e.wheelDeltaY > 0) {
 			if (scrollY > 0) {
@@ -311,16 +341,20 @@ function wheel(e) {
 			}
 		}
 
-		drawData(data, scrollY);
+		drawData(data);
 	}
 }
 
 // ui functions
 
 function selectCell(index) {
-	if (index < data.byteLength) {
-		selectedCell = Math.max(0, index);
-	}
+	selectedCell = Math.max(0, Math.min(index, data.byteLength - 1));
+	//scrollY = Math.floor(selectedCell / 16);
+
+	let cellsInARow = Math.floor((canvas.height - cellSizeY) / cellSizeY);
+	scrollY = Math.floor(selectedCell / (16 * cellsInARow)) * cellsInARow;
+
+	drawData(data);
 }
 
 function drawData(data) {
@@ -357,9 +391,9 @@ function drawData(data) {
 	context.fillText(char, rowNumWidth - 16, cellSizeY / 2);
 
 	// column number
-	for (let x = 0; x < 16; x ++) {
+	for (let x = 0; x < 16; x++) {
 		let char = x.toString(16);
-		
+
 		context.textAlign = "center";
 		context.textBaseline = "middle";
 
@@ -367,26 +401,36 @@ function drawData(data) {
 	}
 
 	// row number
-	for (let y = 0; y < (canvas.height - cellSizeY) / cellSizeY; y ++) {
+	for (let y = 0; y <= Math.floor((canvas.height - cellSizeY) / cellSizeY); y++) {
 
 		let char = ((y + scrollY) * 16).toString(16);
 
 		context.textAlign = "right";
 		context.textBaseline = "middle";
-		
+
 		context.fillText(char, rowNumWidth - 16, cellSizeY + (y * cellSizeY) + cellSizeY / 2);
 	}
 
-	if (data) {
-		const dataView = new DataView(data);
+	// ascii column
 
+	context.textAlign = "center";
+	context.textBaseline = "middle";
+
+	for (let i = 0; i < asciiText.length; i++) {
+		let char = asciiText[i];
+		context.fillText(char, (rowNumWidth + cellSizeX * 17) + (i * cellSizeX) + (cellSizeX / 2), cellSizeY / 2);
+	}
+
+	// data
+
+	if (data && dataView) {
 		cells = (scrollY * 16);
 
 		context.textAlign = "center";
 		context.textBaseline = "middle";
 
-		for (let y = 0; y < (canvas.height - cellSizeY) / cellSizeY; y++) {
-			
+		for (let y = 0; y <= Math.floor((canvas.height - cellSizeY) / cellSizeY); y++) {
+
 			for (let x = 0; x < 16; x++) {
 
 				if (cells < data.byteLength) {
@@ -394,7 +438,7 @@ function drawData(data) {
 
 					let char = dataView.getUint8(cells).toString(16);
 					let char2 = String.fromCharCode(dataView.getUint8(cells));
-										
+
 					// highlight cell
 					if (selectedCell == cells) {
 						context.fillStyle = foreColor;
@@ -414,7 +458,7 @@ function drawData(data) {
 
 					// ascii
 
-					context.fillText(char2, (rowNumWidth +  cellSizeX * 17) + (x * cellSizeX) + cellSizeX / 2, cellSizeY + (y * cellSizeY) + cellSizeY / 2);
+					context.fillText(char2, (rowNumWidth + cellSizeX * 17) + (x * cellSizeX) + cellSizeX / 2, cellSizeY + (y * cellSizeY) + cellSizeY / 2);
 
 					cells++;
 				}
@@ -427,8 +471,10 @@ function drawData(data) {
 }
 
 function dumpFile(data) {
-	drawData(data, scrollY);
+	drawData(data);
 }
+
+// includes command into history
 
 function command(commandStr) {
 	if (!commands.includes(commandStr)) {
@@ -440,18 +486,38 @@ function command(commandStr) {
 	localStorage.setItem("commands", JSON.stringify(commands));
 }
 
+function changeColors(colors) {
+	backColor = colors.back ? colors.back : backColor;
+	foreColor = colors.fore ? colors.fore : foreColor;
+	enterSymbol.style.color = foreColor;
+	terminal.style.color = foreColor;
+
+	drawData(data);
+
+	localStorage.setItem("back-color", backColor);
+	localStorage.setItem("fore-color", foreColor);
+}
+
 function scaleFont() {
-	cellSizeX ++;
-	cellSizeY ++;
-	rowNumWidth ++;
+	cellSizeX++;
+	cellSizeY++;
+	rowNumWidth++;
 
 	fontSize += 0.5;
 }
 
 function unscaleFont() {
-	cellSizeX --;
-	cellSizeY --;
-	rowNumWidth --;
+	cellSizeX--;
+	cellSizeY--;
+	rowNumWidth--;
 
 	fontSize -= 0.5;
+}
+
+function initialScale() {
+	cellSizeX = cellInitialSizeX;
+	cellSizeY = cellInitialSizeY;
+	rowNumWidth = rowInitialWidth;
+	fontSize = initialFontSize;
+	drawData(data);
 }
