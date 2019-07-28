@@ -12,7 +12,9 @@ Read binary files
 
 **back-color** - change background color
 
-**reset** - reset scroll
+**reset** - reset scroll and select first cell
+
+**bottom** - scroll to the bottom and select last cell
 
 **reset-colors** - reset background and text colors
 
