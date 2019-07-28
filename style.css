@@ -25,10 +25,6 @@ canvas {
 	/*border-bottom: 1px solid #616161;*/
 }
 
-#enterSymbol {
-	font-size: 20px;
-}
-
 #terminal {
 	outline: none;
 	border: none;
@@ -42,7 +38,7 @@ td {
 	width: 32px;
 	height: 32px;
 	text-align: center;
-
+	
 	cursor: pointer;
 	user-select: none;
 }
