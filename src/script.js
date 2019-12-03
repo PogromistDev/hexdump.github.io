@@ -521,9 +521,9 @@ function initialScale() {
 	drawData(data);
 }
 
-function installProgressiveWebApp() {
-	let deferredPrompt = null;
+let deferredPrompt = null;
 
+function installProgressiveWebApp() {
 	if ('serviceWorker' in navigator) {
 		window.addEventListener('load', e => {
 			navigator.serviceWorker.register('/hexdump/src/sw.js')
