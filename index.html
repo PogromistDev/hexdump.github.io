@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title></title>
+		<title>View files in hex</title>
+		<link rel="shortcut icon" href="favicon.png" type="image/png">
 		<link rel="stylesheet" type="text/css" href="style.css">
-		<script src="w3color.js" defer></script>
-		<script src="script.js" defer></script>
+		<link rel="manifest" href="manifest.json">
+
+		<script src="src/w3color.js" defer></script>
+		<script src="src/script.js" defer></script>
 	</head>
 	<body>
 		<div id="ui">
@@ -14,7 +17,6 @@
 				<input id="browse" type="file" hidden>
 				<input id="color" type="color" hidden>
 			</div>
-
 			<div id="stdout">
 				<canvas id="canvas"></canvas>
 			</div>

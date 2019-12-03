@@ -1,0 +1,21 @@
+{
+	"short_name": "hexdump",
+	"name": "HexDump",
+	"icons": [
+		{
+			"src": "/hexdump/icons/192x192.png",
+			"type": "image/png",
+			"sizes": "192x192"
+		},
+		{
+			"src": "/hexdump/icons/512x512.png",
+			"type": "image/png",
+			"sizes": "512x512"
+		}
+	],
+	"start_url": "/hexdump/",
+	"orientation": "landscape",
+	"display": "standalone",
+	"theme_color": "black",
+	"background_color": "black"
+}
