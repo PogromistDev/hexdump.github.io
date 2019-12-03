@@ -526,7 +526,7 @@ function installProgressiveWebApp() {
 
 	if ('serviceWorker' in navigator) {
 		window.addEventListener('load', e => {
-			navigator.serviceWorker.register('sw.js')
+			navigator.serviceWorker.register('/hexdump/src/sw.js')
 			.then(registration => {
 				console.log('ServiceWorker registered successfully');
 			})
