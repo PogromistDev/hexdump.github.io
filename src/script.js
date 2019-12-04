@@ -525,8 +525,9 @@ let deferredPrompt = null;
 
 function installProgressiveWebApp() {
 	if ('serviceWorker' in navigator) {
+
 		window.addEventListener('load', e => {
-			navigator.serviceWorker.register('/hexdump/src/sw.js')
+			navigator.serviceWorker.register('/hexdump/src/sw.js', { scope: '/hexdump/' })
 			.then(registration => {
 				console.log('ServiceWorker registered successfully');
 			})
