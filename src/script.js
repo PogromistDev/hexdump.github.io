@@ -483,13 +483,15 @@ function command(commandStr) {
 }
 
 function changeColors(colors) {
-	let color = new w3color(backColor);
-	color.darker(10);
+	let color;
 
 	backColor = colors.back ? colors.back : backColor;
 	foreColor = colors.fore ? colors.fore : foreColor;
 	enterSymbol.style.color = foreColor;
 	terminal.style.color = foreColor;
+
+	color = new w3color(backColor);
+	color.darker(10);
 
 	document.body.style.backgroundColor = color.toRgbaString();
 	const meta = document.querySelector('meta[name=theme-color');
