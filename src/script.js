@@ -491,6 +491,9 @@ function changeColors(colors) {
 	enterSymbol.style.color = foreColor;
 	terminal.style.color = foreColor;
 
+	const meta = document.querySelector('meta[name=theme-color');
+	meta.setAttribute('content', backColor);
+
 	drawData(data);
 
 	localStorage.setItem("back-color", backColor);
